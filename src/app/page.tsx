@@ -1,18 +1,33 @@
 import WatchOrderApp from './components/WatchOrderApp';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export const revalidate = 3600; // Cache de 1 heure
 
 export default async function Page() {
-  const prisma = new PrismaClient();
+  const session = await auth();
+  
   const media = await prisma.media.findMany({
     orderBy: { releaseOrder: 'asc' }
   });
-  await prisma.$disconnect();
+
+  let userProgress: string[] = [];
+  
+  if (session?.user?.id) {
+    const progress = await prisma.userMediaProgress.findMany({
+      where: { userId: session.user.id },
+      select: { mediaId: true }
+    });
+    userProgress = progress.map(p => p.mediaId);
+  }
 
   return (
     <main className="app-container">
-      <WatchOrderApp initialMedia={media} />
+      <WatchOrderApp 
+        initialMedia={media} 
+        serverProgress={userProgress} 
+        isLoggedIn={!!session?.user} 
+      />
     </main>
   );
 }

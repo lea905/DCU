@@ -16,7 +16,7 @@ export function Modal({ media, onClose }: ModalProps) {
           <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit', fontWeight: 800 }}>{media.title}</h2>
           
           <div style={{ display: 'flex', gap: '1rem', color: 'var(--color-text-muted)' }}>
-            <span>{new Date(media.releaseDate).getFullYear()}</span>
+            <span>{media.releaseDate ? new Date(media.releaseDate).getFullYear() : 'TBA'}</span>
             <span>•</span>
             <span>{media.duration} min</span>
             <span>•</span>

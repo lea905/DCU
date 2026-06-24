@@ -4,7 +4,6 @@ import * as cheerio from 'cheerio';
 
 const prisma = new PrismaClient();
 
-// Liste de base (Fallback) au cas où le scraping échoue ou pour initialiser
 const seedData = [
   {
     id: 'superman-2025',
@@ -14,102 +13,140 @@ const seedData = [
     universe: 'DCU',
     canon: true,
     type: 'Movie',
+    status: 'In Production',
     releaseOrder: 25,
     chronologicalOrder: 41,
-    posterUrl: 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=Superman',
-    summary: 'Le premier film du Chapitre 1 : Gods and Monsters du DCU de James Gunn.'
+    summary: 'Le premier film du Chapitre 1 : Gods and Monsters du DCU.'
   },
   {
-    id: 'creature-commandos',
-    title: 'Creature Commandos',
-    releaseDate: '2024-12-05',
-    duration: 220,
+    id: 'supergirl-woman-of-tomorrow',
+    title: 'Supergirl: Woman of Tomorrow',
+    releaseDate: '2026-06-26',
+    duration: 120,
     universe: 'DCU',
     canon: true,
-    type: 'Series',
-    releaseOrder: 24,
-    chronologicalOrder: 40,
-    posterUrl: 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=Creature+Commandos',
-    summary: 'Série animée inaugurant le DCU, suivant une équipe de monstres recrutés par Amanda Waller.'
+    type: 'Movie',
+    status: 'In Development',
+    releaseOrder: 26,
+    chronologicalOrder: 42,
+    summary: 'Basé sur le comic de Tom King.'
+  },
+  {
+    id: 'the-batman-2',
+    title: 'The Batman Part II',
+    releaseDate: '2026-10-02',
+    duration: 160,
+    universe: 'Elseworlds',
+    canon: false,
+    type: 'Movie',
+    status: 'In Development',
+    releaseOrder: 30,
+    chronologicalOrder: 99,
+    summary: 'Suite du film The Batman de Matt Reeves.'
   }
-  // (Le reste de la base exhaustive sera initialisé manuellement ou via un seed complet)
 ];
 
-async function scrapeWikipedia() {
-  console.log('Démarrage du script de scraping...');
-  try {
-    // Exemple de scraping Wikipedia pour récupérer d'éventuelles dates de sortie
-    // Note: L'URL exacte et les sélecteurs dépendent fortement de la structure de Wikipédia
-    const url = 'https://en.wikipedia.org/wiki/DC_Universe_(franchise)';
-    const response = await axios.get(url);
-    const $ = cheerio.load(response.data);
+async function scrapeSources() {
+  console.log('--- Scraping multi-sources en cours ---');
+  const results = new Map();
 
-    // Extraction hypothétique : on cherche les tableaux de la section "Films"
-    const movies: { title: string; releaseDate: string; }[] = [];
-    $('.wikitable tbody tr').each((i, row) => {
-      if (i === 0) return; // Skip header
-      const title = $(row).find('th i a, th i').first().text().trim();
-      const releaseDate = $(row).find('td').first().text().trim();
+  try {
+    // Source 1: Wikipedia EN (Excellent for Release Dates)
+    console.log('Fetching Wikipedia EN...');
+    const wikiRes = await axios.get('https://en.wikipedia.org/wiki/List_of_DC_Universe_projects');
+    const $wiki = cheerio.load(wikiRes.data);
+    
+    $wiki('.wikitable tbody tr').each((i, row) => {
+      if (i === 0) return;
+      const title = $wiki(row).find('th i a, th i').first().text().trim();
+      let releaseDate = $wiki(row).find('td').first().text().trim();
       
-      if (title && releaseDate) {
-        movies.push({ title, releaseDate });
+      // Clean Wiki citations [1][2]
+      releaseDate = releaseDate.replace(/\[\d+\]/g, '').trim();
+
+      if (title) {
+        results.set(title, { 
+          title, 
+          releaseDate: releaseDate.length > 4 ? releaseDate : null,
+          status: releaseDate.includes('TBA') ? 'In Development' : 'Released'
+        });
       }
     });
 
-    console.log(`Données scrapées trouvées : ${movies.length} films potentiels.`);
-    return movies;
+    // Source 2: Fandom DC Database (Excellent for Summaries/Lore)
+    console.log('Fetching DC Fandom...');
+    const fandomRes = await axios.get('https://dc.fandom.com/wiki/DC_Universe_(Film_Franchise)');
+    const $fandom = cheerio.load(fandomRes.data);
+    
+    $fandom('.wikitable tbody tr').each((i, row) => {
+      const title = $fandom(row).find('td i a').first().text().trim();
+      const status = $fandom(row).find('td:nth-child(4)').text().trim(); // Example status column
+      
+      if (title && results.has(title)) {
+        const existing = results.get(title);
+        // Fandom usually has more accurate "status" for upcoming movies
+        if (status.toLowerCase().includes('filming')) existing.status = 'In Production';
+        else if (status.toLowerCase().includes('development')) existing.status = 'In Development';
+      }
+    });
 
-  } catch (error) {
-    console.error('Erreur lors du scraping de Wikipédia :', error);
-    return [];
+  } catch (err) {
+    console.error('Erreur durant le scraping:', err);
   }
+
+  return Array.from(results.values());
 }
 
 async function main() {
   try {
-    // 1. Initialiser la base de données avec le seed s'il n'y a pas de données
     const count = await prisma.media.count();
     if (count === 0) {
-      console.log('Base de données vide. Initialisation avec les données de base...');
+      console.log('Injection du Seed initial...');
       for (const item of seedData) {
         await prisma.media.create({ data: item });
       }
-      console.log('Initialisation terminée.');
     }
 
-    // 2. Tenter de scraper les mises à jour (ex: nouvelles dates)
-    const scrapedData = await scrapeWikipedia();
-    
-    // 3. Mettre à jour la base de données avec précaution
-    for (const scrapedItem of scrapedData) {
-      // Nettoyage sommaire de la date (ex: "July 11, 2025[12]")
-      const cleanDateMatch = scrapedItem.releaseDate.match(/[A-Z][a-z]+ \d{1,2}, \d{4}/);
-      
-      if (cleanDateMatch) {
-        const cleanDate = new Date(cleanDateMatch[0]).toISOString().split('T')[0];
-        
-        // Mettre à jour si le film existe déjà (par titre partiel ou exact)
-        const existingMedia = await prisma.media.findFirst({
-          where: { title: { contains: scrapedItem.title } }
-        });
+    const scrapedData = await scrapeSources();
 
-        if (existingMedia && existingMedia.releaseDate !== cleanDate) {
-          console.log(`Mise à jour de la date de sortie pour ${existingMedia.title}: ${existingMedia.releaseDate} -> ${cleanDate}`);
+    for (const scraped of scrapedData) {
+      const cleanDateMatch = scraped.releaseDate ? scraped.releaseDate.match(/[A-Z][a-z]+ \d{1,2}, \d{4}/) : null;
+      let isoDate = null;
+      if (cleanDateMatch) {
+        isoDate = new Date(cleanDateMatch[0]).toISOString().split('T')[0];
+      }
+
+      const existingMedia = await prisma.media.findFirst({
+        where: { title: { contains: scraped.title } }
+      });
+
+      if (existingMedia) {
+        const updateData: any = {};
+        let needsUpdate = false;
+
+        if (isoDate && existingMedia.releaseDate !== isoDate) {
+          updateData.releaseDate = isoDate;
+          needsUpdate = true;
+        }
+        if (existingMedia.status !== scraped.status && scraped.status) {
+          updateData.status = scraped.status;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          console.log(`Mise à jour: ${existingMedia.title}`);
           await prisma.media.update({
             where: { id: existingMedia.id },
-            data: { releaseDate: cleanDate, updatedAt: new Date() }
+            data: updateData
           });
         }
       }
     }
-
-    console.log('Script exécuté avec succès.');
-  } catch (error) {
-    console.error('Erreur critique dans le processus principal :', error);
+  } catch (e) {
+    console.error(e);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Lancement automatique du script
 main();
