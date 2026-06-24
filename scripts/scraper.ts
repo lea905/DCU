@@ -51,9 +51,11 @@ async function scrapeSources() {
   const results = new Map();
 
   try {
+    const headers = { 'User-Agent': 'DCUWatchOrderApp/1.0 (contact@example.com)' };
+
     // Source 1: Wikipedia EN (Excellent for Release Dates)
     console.log('Fetching Wikipedia EN...');
-    const wikiRes = await axios.get('https://en.wikipedia.org/wiki/List_of_DC_Universe_projects');
+    const wikiRes = await axios.get('https://en.wikipedia.org/wiki/List_of_DC_Universe_projects', { headers });
     const $wiki = cheerio.load(wikiRes.data);
     
     $wiki('.wikitable tbody tr').each((i, row) => {
@@ -75,7 +77,8 @@ async function scrapeSources() {
 
     // Source 2: Fandom DC Database (Excellent for Summaries/Lore)
     console.log('Fetching DC Fandom...');
-    const fandomRes = await axios.get('https://dc.fandom.com/wiki/DC_Universe_(Film_Franchise)');
+    const headers = { 'User-Agent': 'DCUWatchOrderApp/1.0 (contact@example.com)' };
+    const fandomRes = await axios.get('https://dc.fandom.com/wiki/DC_Universe_(Film_Franchise)', { headers });
     const $fandom = cheerio.load(fandomRes.data);
     
     $fandom('.wikitable tbody tr').each((i, row) => {
