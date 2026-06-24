@@ -1,29 +1,46 @@
 import React from 'react';
 
 export function Header({ 
-  totalMedia, 
-  watchedCount, 
+  mediaList, 
+  watchedItems, 
   searchQuery, 
   onSearchChange, 
   sortBy, 
   onSortChange 
 }) {
+  const totalMedia = mediaList.length;
+  const watchedCount = watchedItems.length;
   const percentage = totalMedia > 0 ? Math.round((watchedCount / totalMedia) * 100) : 0;
+
+  const totalTime = mediaList.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+  const watchedTime = mediaList
+    .filter(m => watchedItems.includes(m.id))
+    .reduce((acc, curr) => acc + (curr.duration || 0), 0);
+  const remainingTime = totalTime - watchedTime;
+
+  const formatTime = (minutes) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}h ${m}m`;
+  };
 
   return (
     <header className="header">
-      <h1>DC Universe Watch Order</h1>
+      <h1>MCU Viewing Order</h1>
+      <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>Adaptation DC Universe</p>
       
-      <div className="progress-container">
-        <div className="progress-text">
-          <span>Progression Globale</span>
-          <span>{watchedCount} / {totalMedia} œuvres vues - {percentage}%</span>
+      <div className="intro-metrics">
+        <div className="intro-metric">
+          <span className="intro-metric-value">{percentage}%</span>
+          <span className="intro-metric-label">Complete</span>
         </div>
-        <div className="progress-bar-bg">
-          <div 
-            className="progress-bar-fill" 
-            style={{ width: `${percentage}%` }}
-          />
+        <div className="intro-metric">
+          <span className="intro-metric-value">{formatTime(watchedTime)}</span>
+          <span className="intro-metric-label">Time Spent Watching</span>
+        </div>
+        <div className="intro-metric">
+          <span className="intro-metric-value">{formatTime(remainingTime)}</span>
+          <span className="intro-metric-label">Remaining</span>
         </div>
       </div>
 
@@ -31,7 +48,7 @@ export function Header({
         <input 
           type="text" 
           className="search-input"
-          placeholder="Rechercher un film ou une série..." 
+          placeholder="Search..." 
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -41,13 +58,13 @@ export function Header({
             className={`sort-btn ${sortBy === 'release' ? 'active' : ''}`}
             onClick={() => onSortChange('release')}
           >
-            Ordre de Sortie
+            Release Date
           </button>
           <button 
             className={`sort-btn ${sortBy === 'chronological' ? 'active' : ''}`}
             onClick={() => onSortChange('chronological')}
           >
-            Ordre Chronologique
+            Chronological
           </button>
         </div>
       </div>

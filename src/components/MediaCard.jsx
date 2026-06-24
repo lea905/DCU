@@ -1,7 +1,6 @@
 import React from 'react';
 
 export function MediaCard({ media, isWatched, onToggleWatch }) {
-  // Déterminer la classe CSS du badge univers
   const getUniverseClass = (universe) => {
     const u = universe.toLowerCase();
     if (u.includes('dceu')) return 'dceu';
@@ -11,38 +10,42 @@ export function MediaCard({ media, isWatched, onToggleWatch }) {
     return 'elseworlds';
   };
 
+  // Convert date format
+  const releaseYear = new Date(media.releaseDate).getFullYear();
+
   return (
-    <div className={`media-card ${isWatched ? 'watched' : ''}`}>
-      <div className="card-poster">
-        <div className="card-poster-fallback">{media.title}</div>
-        {media.posterUrl && (
-          <img src={media.posterUrl} alt={`Affiche de ${media.title}`} loading="lazy" />
+    <div className={`media-card-horizontal ${isWatched ? 'watched' : ''}`} onClick={() => onToggleWatch(media.id)}>
+      <div className="card-poster-wrapper">
+        {media.posterUrl ? (
+          <img src={media.posterUrl} alt={media.title} className="poster-img" loading="lazy" />
+        ) : (
+          <div className="poster-fallback">DC</div>
         )}
       </div>
       
-      <div className="card-content">
-        <h3 className="card-title">{media.title}</h3>
-        <div className="card-meta">
-          <span>{new Date(media.releaseDate).getFullYear()}</span>
-          <span>{media.duration} min</span>
+      <div className="card-info">
+        <div className="card-header">
+          <h3 className="card-title">{media.title}</h3>
+          <span className="card-year">{releaseYear}</span>
         </div>
         
-        <div className="card-badges">
-          <span className={`badge ${getUniverseClass(media.universe)}`}>
-            {media.universe}
-          </span>
-          <span className={`badge ${media.canon ? 'canon' : 'non-canon'}`}>
-            {media.canon ? 'Canon' : 'Non-Canon'}
-          </span>
+        <div className="card-details">
+          <span className="duration">{media.duration} min</span>
+          <span className="dot">•</span>
+          <span className={`badge ${getUniverseClass(media.universe)}`}>{media.universe}</span>
+          {!media.canon && <span className="badge non-canon">Non-Canon</span>}
           <span className="badge format">{media.type}</span>
         </div>
+      </div>
 
-        <button 
-          className={`watch-btn ${isWatched ? 'watched' : 'unwatched'}`}
-          onClick={() => onToggleWatch(media.id)}
-        >
-          {isWatched ? '✓ Vue' : '+ Marquer comme vue'}
-        </button>
+      <div className="card-action">
+        <div className={`custom-checkbox ${isWatched ? 'checked' : ''}`}>
+          {isWatched && (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          )}
+        </div>
       </div>
     </div>
   );

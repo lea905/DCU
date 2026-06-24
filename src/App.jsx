@@ -77,8 +77,8 @@ function App() {
   return (
     <div className="app-container">
       <Header 
-        totalMedia={dcMedia.length}
-        watchedCount={watchedItems.length}
+        mediaList={dcMedia}
+        watchedItems={watchedItems}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         sortBy={sortBy}
